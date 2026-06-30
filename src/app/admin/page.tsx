@@ -46,6 +46,7 @@ export default function AdminDashboard() {
   const [statusAbsen, setStatusAbsen] = useState<string | null>(null);
   const [absensiId, setAbsensiId] = useState<string | null>(null);
   const [isSavingAbsen, setIsSavingAbsen] = useState(false);
+  const [refreshKey, setRefreshKey] = useState(0);
 
   const [opsStats, setOpsStats] = useState({ total: 0, stats: { "Hadir": 0, "Cuti tahunan": 0, "Dinas luar": 0, "Off": 0, "Telat": 0, "Belum": 0 } as any });
   const [dataStats, setDataStats] = useState({ total: 0, stats: { "Hadir di apel": 0, "Hadir di lapangan": 0, "Cuti": 0, "Off": 0, "Telat": 0, "Belum": 0 } as any });
@@ -169,7 +170,7 @@ export default function AdminDashboard() {
       }
     };
     fetchDashboardData();
-  }, []);
+  }, [refreshKey]);
 
   const { totalSurat, pendingCount, completedCount, totalPenerima } = stats;
 
@@ -204,7 +205,9 @@ export default function AdminDashboard() {
         if (error) throw error;
         if (data) setAbsensiId(data.id);
       }
-      setStatusAbsen(status);
+      // Kita TIDAK memanggil setStatusAbsen di sini, 
+      // melainkan setRefreshKey() agar useEffect mem-fetch ulang data terbaru dari DB
+      setRefreshKey(prev => prev + 1);
     } catch (error: any) {
       console.error(error);
       alert("Gagal menyimpan absensi: " + error.message);
@@ -254,6 +257,12 @@ export default function AdminDashboard() {
                       <p className="font-heading text-base font-bold text-emerald-300 mb-1">Terima kasih, Anda sudah absen hari ini</p>
                       <p className="text-sm text-emerald-500">Status tercatat: <span className="font-mono font-bold bg-emerald-500/20 text-emerald-200 px-2 py-0.5 rounded border border-emerald-500/30">{statusAbsen}</span></p>
                     </div>
+                    <button 
+                      onClick={() => setStatusAbsen(null)} 
+                      className="ml-auto text-sm bg-zinc-900 px-4 py-2 rounded-lg border border-zinc-700 hover:bg-zinc-800 text-zinc-300 font-medium transition-colors"
+                    >
+                      Ubah
+                    </button>
                   </div>
                 ) : (
                   <div className="grid grid-cols-2 sm:grid-cols-5 gap-3 sm:gap-4">

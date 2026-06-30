@@ -26,6 +26,7 @@ export default function StaffDashboard() {
   const [statusAbsen, setStatusAbsen] = useState<string | null>(null);
   const [absensiId, setAbsensiId] = useState<string | null>(null);
   const [isSavingAbsen, setIsSavingAbsen] = useState(false);
+  const [refreshKey, setRefreshKey] = useState(0);
 
   const [stats, setStats] = useState({ totalDisposisi: 0, pendingCount: 0, completedCount: 0 });
   const [myDisposisi, setMyDisposisi] = useState<any[]>([]);
@@ -96,7 +97,7 @@ export default function StaffDashboard() {
       }
     };
     fetchStaffData();
-  }, []);
+  }, [refreshKey]);
 
   const [divisi, setDivisi] = useState<string>("Pendataan"); // Fallback
 
@@ -133,7 +134,9 @@ export default function StaffDashboard() {
         if (error) throw error;
         if (data) setAbsensiId(data.id);
       }
-      setStatusAbsen(status);
+      // Kita TIDAK memanggil setStatusAbsen di sini,
+      // melainkan setRefreshKey() agar useEffect mem-fetch ulang data terbaru dari DB
+      setRefreshKey(prev => prev + 1);
     } catch (error: any) {
       console.error(error);
       alert("Gagal menyimpan absensi: " + error.message);
@@ -183,6 +186,12 @@ export default function StaffDashboard() {
                       <p className="font-heading text-base font-bold text-emerald-300 mb-1">Terima kasih, Anda sudah absen hari ini</p>
                       <p className="text-sm text-emerald-500">Status tercatat: <span className="font-mono font-bold bg-emerald-500/20 text-emerald-200 px-2 py-0.5 rounded border border-emerald-500/30">{statusAbsen}</span></p>
                     </div>
+                    <button 
+                      onClick={() => setStatusAbsen(null)} 
+                      className="ml-auto text-sm bg-zinc-900 px-4 py-2 rounded-lg border border-zinc-700 hover:bg-zinc-800 text-zinc-300 font-medium transition-colors"
+                    >
+                      Ubah
+                    </button>
                   </div>
                 ) : (
                   <div className="grid grid-cols-2 sm:grid-cols-5 gap-3 sm:gap-4">
