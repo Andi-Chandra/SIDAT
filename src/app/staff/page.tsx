@@ -24,6 +24,8 @@ export default function StaffDashboard() {
   const [userName, setUserName] = useState("Staf");
   const [staffName, setStaffName] = useState("");
   const [statusAbsen, setStatusAbsen] = useState<string | null>(null);
+  const [absensiId, setAbsensiId] = useState<string | null>(null);
+  const [isSavingAbsen, setIsSavingAbsen] = useState(false);
 
   const [stats, setStats] = useState({ totalDisposisi: 0, pendingCount: 0, completedCount: 0 });
   const [myDisposisi, setMyDisposisi] = useState<any[]>([]);
@@ -42,6 +44,20 @@ export default function StaffDashboard() {
         if (profile.divisi) {
           setDivisi(profile.divisi);
         }
+      }
+
+      // Fetch today's absensi
+      const today = new Date().toLocaleDateString('en-CA');
+      const { data: absenData } = await supabase
+        .from('absensi')
+        .select('*')
+        .eq('staff_id', user.id)
+        .eq('tanggal', today)
+        .single();
+        
+      if (absenData) {
+        setStatusAbsen(absenData.status);
+        setAbsensiId(absenData.id);
       }
 
       // Fetch all disposisi for this staff
@@ -85,6 +101,46 @@ export default function StaffDashboard() {
   const [divisi, setDivisi] = useState<string>("Pendataan"); // Fallback
 
   const { totalDisposisi, pendingCount, completedCount } = stats;
+
+  const handleAbsenClick = async (status: string) => {
+    if (isSavingAbsen) return;
+    setIsSavingAbsen(true);
+    try {
+      const supabase = createClient();
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
+      const today = new Date().toLocaleDateString('en-CA');
+      const timeNow = new Date().toLocaleTimeString('en-GB', { hour12: false }).substring(0,5) + ":00";
+
+      if (absensiId) {
+        const { error } = await supabase
+          .from('absensi')
+          .update({ status, waktu_absen: timeNow })
+          .eq('id', absensiId);
+        if (error) throw error;
+      } else {
+        const { data, error } = await supabase
+          .from('absensi')
+          .insert({
+            staff_id: user.id,
+            tanggal: today,
+            status,
+            waktu_absen: timeNow
+          })
+          .select('id')
+          .single();
+        if (error) throw error;
+        if (data) setAbsensiId(data.id);
+      }
+      setStatusAbsen(status);
+    } catch (error: any) {
+      console.error(error);
+      alert("Gagal menyimpan absensi: " + error.message);
+    } finally {
+      setIsSavingAbsen(false);
+    }
+  };
 
   return (
     <div className="flex h-screen overflow-hidden bg-zinc-950">
@@ -145,8 +201,9 @@ export default function StaffDashboard() {
                     ]).map((btn) => (
                       <button
                         key={btn.label}
-                        onClick={() => setStatusAbsen(btn.label)}
-                        className={`flex flex-col items-center justify-center gap-3 p-4 sm:p-5 rounded-2xl border transition-all hover:shadow-[0_8px_20px_-5px_rgba(0,0,0,0.5)] hover:-translate-y-1 ${btn.color}`}
+                        onClick={() => handleAbsenClick(btn.label)}
+                        disabled={isSavingAbsen}
+                        className={`flex flex-col items-center justify-center gap-3 p-4 sm:p-5 rounded-2xl border transition-all hover:shadow-[0_8px_20px_-5px_rgba(0,0,0,0.5)] hover:-translate-y-1 ${btn.color} ${isSavingAbsen ? 'opacity-50 cursor-not-allowed' : ''}`}
                       >
                         <span className="text-3xl grayscale-[0.5] hover:grayscale-0 transition-all">{btn.icon}</span>
                         <span className="text-xs sm:text-sm font-semibold text-center leading-tight">{btn.label}</span>

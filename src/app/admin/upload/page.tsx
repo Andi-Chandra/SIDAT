@@ -115,42 +115,77 @@ export default function UploadPage() {
     setStep("parsing");
     setParseProgress(0);
 
-    // Simulate parsing with progress
-    const steps = [
-      { msg: "Membaca file PDF...", pct: 20 },
-      { msg: "Menganalisis struktur dokumen...", pct: 40 },
-      { msg: "Mengekstrak teks dengan OCR...", pct: 60 },
-      { msg: "Mengidentifikasi field data...", pct: 80 },
-      { msg: "Memproses nama penerima...", pct: 95 },
-    ];
+    try {
+      // Create FormData to send the file
+      const formDataToSend = new FormData();
+      formDataToSend.append("file", file);
 
-    for (const s of steps) {
-      await new Promise((r) => setTimeout(r, 500));
-      setParseProgress(s.pct);
+      // Start the progress animation while the request is running
+      const progressInterval = setInterval(() => {
+        setParseProgress((prev) => {
+          if (prev >= 90) return prev;
+          return prev + 10;
+        });
+      }, 500);
+
+      // Call the real extraction API
+      const response = await fetch("/api/extract", {
+        method: "POST",
+        body: formDataToSend,
+      });
+
+      clearInterval(progressInterval);
+      setParseProgress(100);
+
+      if (!response.ok) {
+        throw new Error("Gagal mengekstrak dokumen");
+      }
+
+      const ocr = await response.json();
+
+      // Find staff matches from dbStaff based on the extracted names
+      // Ensure it maps to the correct ID if found, otherwise keep as custom
+      const mappedPenerima = (ocr.penerima || []).map((nama: string, idx: number) => {
+        const existingStaff = dbStaff.find(
+          (s) => s.full_name.toLowerCase() === nama.toLowerCase()
+        );
+        return {
+          id: existingStaff ? existingStaff.id : `custom-${Date.now()}-${idx}`,
+          nama: existingStaff ? existingStaff.full_name : nama,
+          status: "pending",
+        };
+      });
+
+      // Populate form with real OCR result
+      setFormData({
+        tanggal_diterima: formData.tanggal_diterima || new Date().toISOString().split('T')[0],
+        nomor_surat: ocr.nomorSurat || "",
+        tanggal_surat: ocr.tanggalSurat || "",
+        sifat: "Biasa", // Default
+        untuk: "", // Default
+        hal: ocr.perihal || "",
+        no_agenda: "",
+        kode: "",
+        dari: "",
+        lampiran: "",
+        instruksi: INSTRUKSI_OPTIONS.map((label, i) => {
+          const instruksiExtracted = (ocr.instruksi || "").toLowerCase();
+          return { 
+            id: String(i + 1), 
+            label, 
+            checked: instruksiExtracted.includes(label.toLowerCase()) 
+          };
+        }),
+        penerima: mappedPenerima,
+      });
+
+      await new Promise((r) => setTimeout(r, 400));
+      setStep("review");
+    } catch (error) {
+      console.error(error);
+      alert("Terjadi kesalahan saat memproses PDF menggunakan AI.");
+      setStep("upload");
     }
-
-    await new Promise((r) => setTimeout(r, 600));
-    setParseProgress(100);
-
-    // Populate form with mock OCR result
-    const ocr = MOCK_OCR_RESULT;
-    setFormData({
-      tanggal_diterima: ocr.tanggal_diterima || "",
-      nomor_surat: ocr.nomor_surat || "",
-      tanggal_surat: ocr.tanggal_surat || "",
-      sifat: ocr.sifat || "",
-      untuk: ocr.untuk || "",
-      hal: ocr.hal || "",
-      no_agenda: ocr.no_agenda || "",
-      kode: ocr.kode || "",
-      dari: ocr.dari || "",
-      lampiran: ocr.lampiran || "",
-      instruksi: ocr.instruksi || INSTRUKSI_OPTIONS.map((label, i) => ({ id: String(i + 1), label, checked: false })),
-      penerima: (ocr.penerima || []).map((p) => ({ ...p })),
-    });
-
-    await new Promise((r) => setTimeout(r, 400));
-    setStep("review");
   };
 
   const handleFieldChange = (field: keyof FormData, value: string) => {

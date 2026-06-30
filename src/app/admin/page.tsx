@@ -43,6 +43,9 @@ export default function AdminDashboard() {
   const [recentDisposisi, setRecentDisposisi] = useState<any[]>([]);
   const [pendingDisposisi, setPendingDisposisi] = useState<any[]>([]);
 
+  const [opsStats, setOpsStats] = useState({ total: 0, stats: { "Hadir": 0, "Cuti tahunan": 0, "Dinas luar": 0, "Off": 0, "Telat": 0, "Belum": 0 } as any });
+  const [dataStats, setDataStats] = useState({ total: 0, stats: { "Hadir di apel": 0, "Hadir di lapangan": 0, "Cuti": 0, "Off": 0, "Telat": 0, "Belum": 0 } as any });
+
   useEffect(() => {
     const user = sessionStorage.getItem("user");
     if (user) {
@@ -98,15 +101,56 @@ export default function AdminDashboard() {
         setRecentDisposisi(formatted);
         setPendingDisposisi(formatted.filter(f => f.status === 'pending').slice(0, 4));
       }
+
+      // Fetch dynamic Absensi stats
+      const today = new Date().toLocaleDateString('en-CA');
+      const { data: staffList } = await supabase.from('profiles').select('id, divisi').eq('role', 'staff');
+      const { data: absenList } = await supabase.from('absensi').select('staff_id, status').eq('tanggal', today);
+      
+      if (staffList) {
+        const opsStaff = staffList.filter(s => s.divisi === 'Operasional');
+        const dataStaff = staffList.filter(s => s.divisi === 'Pendataan' || !s.divisi); // Default to pendataan
+        
+        const calcStats = (staffArr: any[], isOps: boolean) => {
+          const result = isOps 
+            ? { "Hadir": 0, "Cuti tahunan": 0, "Dinas luar": 0, "Off": 0, "Telat": 0, "Belum": 0 } as any
+            : { "Hadir di apel": 0, "Hadir di lapangan": 0, "Cuti": 0, "Off": 0, "Telat": 0, "Belum": 0 } as any;
+            
+          let belum = 0;
+          
+          staffArr.forEach(stf => {
+            const absen = absenList?.find(a => a.staff_id === stf.id);
+            if (!absen) {
+              belum++;
+            } else {
+              // Try to map status exactly, or fallback to similar
+              if (result[absen.status] !== undefined) {
+                result[absen.status]++;
+              } else if (absen.status.includes('Hadir')) {
+                const hadirk = isOps ? 'Hadir' : 'Hadir di apel';
+                result[hadirk]++;
+              } else if (absen.status.includes('Cuti')) {
+                const cutik = isOps ? 'Cuti tahunan' : 'Cuti';
+                result[cutik]++;
+              } else {
+                // If totally unmatched, add to 'Belum' or 'Hadir' just to be safe, but let's say 'Belum'
+                belum++;
+              }
+            }
+          });
+          
+          result["Belum"] = belum;
+          return { total: staffArr.length, stats: result };
+        };
+
+        setOpsStats(calcStats(opsStaff, true));
+        setDataStats(calcStats(dataStaff, false));
+      }
     };
     fetchDashboardData();
   }, []);
 
   const { totalSurat, pendingCount, completedCount, totalPenerima } = stats;
-
-  // Kalkulasi Absensi (tetap mock karena belum ada modul database absen)
-  const opsStats = { total: 10, stats: { "Hadir": 8, "Cuti tahunan": 1, "Dinas luar": 0, "Off": 1, "Telat": 0, "Belum": 0 } as any };
-  const dataStats = { total: 12, stats: { "Hadir di apel": 9, "Hadir di lapangan": 1, "Cuti": 1, "Off": 0, "Telat": 1, "Belum": 0 } as any };
 
   return (
     <div className="flex h-screen overflow-hidden bg-zinc-950">
@@ -208,9 +252,17 @@ export default function AdminDashboard() {
                 <div className="bento-card p-6">
                   <div className="flex items-center justify-between mb-5">
                     <h3 className="font-heading text-lg font-bold text-white">Laporan Kehadiran</h3>
-                    <span className="font-mono text-xs font-semibold text-zinc-400 bg-zinc-800 px-3 py-1.5 rounded-lg border border-zinc-700">
-                      {new Date().toLocaleDateString("id-ID", { day: "numeric", month: "short", year: "numeric" })}
-                    </span>
+                    <div className="flex items-center gap-3">
+                      <Link 
+                        href="/admin/absensi" 
+                        className="text-sm text-indigo-400 hover:text-indigo-300 font-medium flex items-center gap-1.5 transition-colors bg-indigo-500/10 border border-indigo-500/20 px-3 py-1.5 rounded-lg"
+                      >
+                        Detail Absensi <ArrowRight size={14} />
+                      </Link>
+                      <span className="font-mono text-xs font-semibold text-zinc-400 bg-zinc-800 px-3 py-1.5 rounded-lg border border-zinc-700 hidden sm:block">
+                        {new Date().toLocaleDateString("id-ID", { day: "numeric", month: "short", year: "numeric" })}
+                      </span>
+                    </div>
                   </div>
                   
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-5">

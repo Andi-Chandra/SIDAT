@@ -15,7 +15,8 @@ import {
   X,
   ChevronDown,
   Building2,
-  TrendingUp
+  TrendingUp,
+  CalendarDays
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { createClient } from "@/lib/supabase/client";
@@ -39,12 +40,14 @@ const adminNavItems: NavItem[] = [
   { href: "/admin/surat", label: "Semua Surat", icon: FileText },
   { href: "/admin/ahp", label: "Penilaian Kinerja", icon: TrendingUp },
   { href: "/admin/staf", label: "Manajemen Staf", icon: Users },
+  { href: "/admin/absensi", label: "Daftar Absen", icon: CalendarDays },
   { href: "/admin/pengaturan", label: "Pengaturan", icon: Settings },
 ];
 
 const staffNavItems: NavItem[] = [
   { href: "/staff", label: "Dashboard", icon: LayoutDashboard },
   { href: "/staff/disposisi", label: "Disposisi Saya", icon: FileText },
+  { href: "/staff/absensi", label: "Daftar Absen", icon: CalendarDays },
   { href: "/staff/pengaturan", label: "Pengaturan", icon: Settings },
 ];
 

@@ -28,7 +28,7 @@ export async function POST(req: NextRequest) {
       Berikut adalah teks mentah yang diekstrak dari sebuah dokumen surat (PDF):
       
       """
-      ${extractedText.substring(0, 5000)}
+      ${extractedText}
       """
       
       Tugas Anda adalah mengekstrak informasi berikut dari teks di atas dan mengembalikannya secara eksklusif dalam format JSON, tanpa teks atau penjelasan lain:
@@ -37,7 +37,7 @@ export async function POST(req: NextRequest) {
         "perihal": "Judul atau perihal surat",
         "tanggalSurat": "Tanggal pembuatan surat dalam format YYYY-MM-DD, jika tidak jelas gunakan null",
         "instruksi": "Instruksi khusus atau catatan yang bisa disimpulkan, jika tidak ada kosongkan",
-        "penerima": ["Nama penerima pertama", "Penerima kedua"]
+        "penerima": ["Nama penerima pertama", "Nama penerima kedua", "... (ekstrak SELURUH/SEMUA nama penerima yang Anda temukan di dokumen)"]
       }
     `;
 
