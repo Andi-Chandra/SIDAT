@@ -39,7 +39,7 @@ export default function StaffDisposisiPage() {
   });
 
   return (
-    <div className="flex h-screen overflow-hidden">
+    <div className="flex h-screen overflow-hidden bg-zinc-950 text-zinc-50">
       <Sidebar role="staff" userName={userName} jabatan="Staf Administrasi" />
       <main className="flex-1 flex flex-col overflow-hidden">
         <TopBar

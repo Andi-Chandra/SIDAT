@@ -17,7 +17,7 @@ export default function AdminStafPage() {
   const staffList = MOCK_STAFF.filter((s) => s.role === "staff");
 
   return (
-    <div className="flex h-screen overflow-hidden">
+    <div className="flex h-screen overflow-hidden bg-zinc-950 text-zinc-50">
       <Sidebar role="admin" userName={userName} jabatan="Sekretaris" />
       <main className="flex-1 flex flex-col overflow-hidden">
         <TopBar title="Manajemen Staf" subtitle="Kelola akun pengguna staf penerima disposisi" />

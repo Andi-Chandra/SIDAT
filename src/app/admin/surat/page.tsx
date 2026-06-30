@@ -14,12 +14,22 @@ export default function AdminSuratPage() {
   const [search, setSearch] = useState("");
   const [filter, setFilter] = useState<FilterStatus>("all");
 
+  const [suratList, setSuratList] = useState(MOCK_DISPOSISI);
+
   useEffect(() => {
     const user = sessionStorage.getItem("user");
     if (user) setUserName(JSON.parse(user).name);
   }, []);
 
-  const filtered = MOCK_DISPOSISI.filter((d) => {
+  const handleDelete = (id: string, e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (confirm("Apakah Anda yakin ingin menghapus surat disposisi ini? Tindakan ini tidak dapat dibatalkan.")) {
+      setSuratList(prev => prev.filter(s => s.id !== id));
+    }
+  };
+
+  const filtered = suratList.filter((d) => {
     const matchSearch =
       d.nomor_surat.toLowerCase().includes(search.toLowerCase()) ||
       d.hal.toLowerCase().includes(search.toLowerCase()) ||
@@ -29,7 +39,7 @@ export default function AdminSuratPage() {
   });
 
   return (
-    <div className="flex h-screen overflow-hidden">
+    <div className="flex h-screen overflow-hidden bg-zinc-950 text-zinc-50">
       <Sidebar role="admin" userName={userName} jabatan="Sekretaris" />
       <main className="flex-1 flex flex-col overflow-hidden">
         <TopBar title="Semua Surat Disposisi" subtitle="Kelola dan pantau seluruh surat masuk" />
@@ -73,7 +83,7 @@ export default function AdminSuratPage() {
 
           <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
             {filtered.map((d) => (
-              <DisposisiCard key={d.id} data={d} viewAs="admin" />
+              <DisposisiCard key={d.id} data={d} viewAs="admin" onDelete={handleDelete} />
             ))}
             {filtered.length === 0 && (
               <div className="col-span-3 py-16 text-center text-slate-600">

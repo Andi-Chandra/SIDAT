@@ -2,7 +2,7 @@
 
 import React from "react";
 import Link from "next/link";
-import { FileText, Calendar, User, ChevronRight, Clock, CheckCircle2, AlertCircle } from "lucide-react";
+import { FileText, Calendar, User, ChevronRight, Clock, CheckCircle2, AlertCircle, Trash2 } from "lucide-react";
 import { cn, formatDate } from "@/lib/utils";
 import { DisposisiData } from "@/lib/types";
 import { getDisposisiStatus } from "@/lib/utils";
@@ -11,6 +11,7 @@ interface DisposisiCardProps {
   data: DisposisiData;
   viewAs: "admin" | "staff";
   staffName?: string;
+  onDelete?: (id: string, e: React.MouseEvent) => void;
 }
 
 function StatusIcon({ status }: { status: "pending" | "completed" }) {
@@ -20,7 +21,7 @@ function StatusIcon({ status }: { status: "pending" | "completed" }) {
   return <Clock size={14} className="text-amber-400" />;
 }
 
-export function DisposisiCard({ data, viewAs, staffName }: DisposisiCardProps) {
+export function DisposisiCard({ data, viewAs, staffName, onDelete }: DisposisiCardProps) {
   const pendingCount = data.penerima.filter((p) => p.status === "pending").length;
   const completedCount = data.penerima.filter((p) => p.status === "completed").length;
   const totalCount = data.penerima.length;
@@ -44,13 +45,24 @@ export function DisposisiCard({ data, viewAs, staffName }: DisposisiCardProps) {
               </div>
             </div>
           </div>
-          <div className="flex items-center gap-2 bg-white/5 px-3 py-1.5 rounded-full border border-white/5">
-            {getDisposisiStatus(data) === "pending" ? (
-              <span className="text-[11px] font-bold tracking-wide text-amber-400 uppercase">Pending</span>
-            ) : (
-              <span className="text-[11px] font-bold tracking-wide text-emerald-400 uppercase">Selesai</span>
+          <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 bg-white/5 px-3 py-1.5 rounded-full border border-white/5">
+              {getDisposisiStatus(data) === "pending" ? (
+                <span className="text-[11px] font-bold tracking-wide text-amber-400 uppercase">Pending</span>
+              ) : (
+                <span className="text-[11px] font-bold tracking-wide text-emerald-400 uppercase">Selesai</span>
+              )}
+              <ChevronRight size={14} className="text-slate-500 group-hover:text-white group-hover:translate-x-0.5 transition-all" />
+            </div>
+            {onDelete && (
+              <button 
+                onClick={(e) => onDelete(data.id, e)}
+                className="p-1.5 rounded-full bg-red-500/10 text-red-400 hover:bg-red-500/20 hover:text-red-300 transition-colors"
+                title="Hapus Surat"
+              >
+                <Trash2 size={14} />
+              </button>
             )}
-            <ChevronRight size={14} className="text-slate-500 group-hover:text-white group-hover:translate-x-0.5 transition-all" />
           </div>
         </div>
 
