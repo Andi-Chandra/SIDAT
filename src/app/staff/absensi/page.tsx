@@ -11,19 +11,19 @@ export default function StaffAbsensiPage() {
   const [jabatan, setJabatan] = useState("");
 
   useEffect(() => {
-    const user = sessionStorage.getItem("user");
-    if (user) {
-      const parsed = JSON.parse(user);
-      setUserName(parsed.name);
-      setUserId(parsed.id);
-      
-      const fetchJabatan = async () => {
-        const supabase = createClient();
-        const { data } = await supabase.from('profiles').select('jabatan').eq('id', parsed.id).single();
-        if (data && data.jabatan) setJabatan(data.jabatan);
-      };
-      fetchJabatan();
-    }
+    const fetchUser = async () => {
+      const supabase = createClient();
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        setUserId(user.id);
+        const { data: profile } = await supabase.from('profiles').select('full_name, jabatan').eq('id', user.id).single();
+        if (profile) {
+          setUserName(profile.full_name);
+          if (profile.jabatan) setJabatan(profile.jabatan);
+        }
+      }
+    };
+    fetchUser();
   }, []);
 
   return (
