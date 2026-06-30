@@ -71,5 +71,29 @@ CREATE POLICY "Staf bisa upload dokumen balasan untuk disposisinya" ON public.do
   EXISTS (SELECT 1 FROM public.disposisi WHERE disposisi.id = disposisi_id AND disposisi.staff_id = auth.uid())
 );
 
--- 5. Storage Buckets (Optional, can also be created via UI)
--- Make sure to create buckets 'pdf-surat' and 'bukti-balasan' in Supabase Storage UI.
+-- 5. Storage Buckets
+INSERT INTO storage.buckets (id, name, public)
+VALUES ('pdf-surat', 'pdf-surat', true)
+ON CONFLICT (id) DO NOTHING;
+
+INSERT INTO storage.buckets (id, name, public)
+VALUES ('bukti-balasan', 'bukti-balasan', true)
+ON CONFLICT (id) DO NOTHING;
+
+-- Storage objects RLS policies (pdf-surat)
+CREATE POLICY "Siapapun bisa melihat file pdf-surat"
+ON storage.objects FOR SELECT TO public USING (bucket_id = 'pdf-surat');
+
+CREATE POLICY "Hanya Admin yang bisa upload pdf-surat"
+ON storage.objects FOR INSERT TO authenticated WITH CHECK (
+  bucket_id = 'pdf-surat' AND EXISTS (SELECT 1 FROM public.profiles WHERE profiles.id = auth.uid() AND profiles.role = 'admin')
+);
+
+-- Storage objects RLS policies (bukti-balasan)
+CREATE POLICY "Siapapun bisa melihat bukti-balasan"
+ON storage.objects FOR SELECT TO public USING (bucket_id = 'bukti-balasan');
+
+CREATE POLICY "Staf bisa upload bukti-balasan"
+ON storage.objects FOR INSERT TO authenticated WITH CHECK (
+  bucket_id = 'bukti-balasan' AND EXISTS (SELECT 1 FROM public.profiles WHERE profiles.id = auth.uid() AND profiles.role = 'staff')
+);
