@@ -18,6 +18,7 @@ import {
   TrendingUp
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { createClient } from "@/lib/supabase/client";
 
 interface NavItem {
   href: string;
@@ -35,7 +36,7 @@ interface SidebarProps {
 const adminNavItems: NavItem[] = [
   { href: "/admin", label: "Dashboard", icon: LayoutDashboard },
   { href: "/admin/upload", label: "Upload Surat", icon: Upload },
-  { href: "/admin/surat", label: "Semua Surat", icon: FileText, badge: 3 },
+  { href: "/admin/surat", label: "Semua Surat", icon: FileText },
   { href: "/admin/ahp", label: "Penilaian Kinerja", icon: TrendingUp },
   { href: "/admin/staf", label: "Manajemen Staf", icon: Users },
   { href: "/admin/pengaturan", label: "Pengaturan", icon: Settings },
@@ -43,14 +44,39 @@ const adminNavItems: NavItem[] = [
 
 const staffNavItems: NavItem[] = [
   { href: "/staff", label: "Dashboard", icon: LayoutDashboard },
-  { href: "/staff/disposisi", label: "Disposisi Saya", icon: FileText, badge: 2 },
+  { href: "/staff/disposisi", label: "Disposisi Saya", icon: FileText },
   { href: "/staff/pengaturan", label: "Pengaturan", icon: Settings },
 ];
 
 export function Sidebar({ role, userName, jabatan }: SidebarProps) {
   const pathname = usePathname();
-  const navItems = role === "admin" ? adminNavItems : staffNavItems;
   const [collapsed, setCollapsed] = useState(false);
+  const [badgeCount, setBadgeCount] = useState<number | null>(null);
+  const supabase = createClient();
+
+  useEffect(() => {
+    const fetchBadge = async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+      
+      if (role === 'admin') {
+         const { count } = await supabase.from('disposisi').select('*', { count: 'exact', head: true }).eq('status', 'pending');
+         setBadgeCount(count || 0);
+      } else {
+         const { count } = await supabase.from('disposisi').select('*', { count: 'exact', head: true }).eq('staff_id', user.id).eq('status', 'pending');
+         setBadgeCount(count || 0);
+      }
+    };
+    fetchBadge();
+  }, [role, supabase]);
+
+  const baseNavItems = role === "admin" ? adminNavItems : staffNavItems;
+  const navItems = baseNavItems.map(item => {
+    if (item.label === "Semua Surat" || item.label === "Disposisi Saya") {
+      return { ...item, badge: badgeCount !== null && badgeCount > 0 ? badgeCount : undefined };
+    }
+    return item;
+  });
 
   return (
     <>

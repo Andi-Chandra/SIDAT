@@ -5,7 +5,6 @@ import { Sidebar, TopBar } from "@/components/layout/Sidebar";
 import { StatCard } from "@/components/ui/StatCard";
 import { DisposisiCard } from "@/components/disposisi/DisposisiCard";
 import { LiveNotification } from "@/components/layout/LiveNotification";
-import { MOCK_DISPOSISI, MOCK_ABSENSI, MOCK_STAFF, StatusAbsensi } from "@/lib/types";
 import { getDisposisiStatus } from "@/lib/utils";
 import {
   FileText,
@@ -18,6 +17,7 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import { formatDate } from "@/lib/utils";
+import { createClient } from "@/lib/supabase/client";
 
 function PollBar({ label, count, total, icon, color }: { label: string, count: number, total: number, icon: string, color: string }) {
   const percent = total > 0 ? (count / total) * 100 : 0;
@@ -38,46 +38,75 @@ function PollBar({ label, count, total, icon, color }: { label: string, count: n
 
 export default function AdminDashboard() {
   const [userName, setUserName] = useState("Admin");
+  
+  const [stats, setStats] = useState({ totalSurat: 0, pendingCount: 0, completedCount: 0, totalPenerima: 0 });
+  const [recentDisposisi, setRecentDisposisi] = useState<any[]>([]);
+  const [pendingDisposisi, setPendingDisposisi] = useState<any[]>([]);
 
   useEffect(() => {
     const user = sessionStorage.getItem("user");
     if (user) {
       setUserName(JSON.parse(user).name);
     }
+    
+    const fetchDashboardData = async () => {
+      const supabase = createClient();
+      
+      const { data: disposisiData } = await supabase.from('disposisi').select('status, id, surat_id');
+      const pendingCount = disposisiData?.filter(d => d.status === 'pending').length || 0;
+      const completedCount = disposisiData?.filter(d => d.status === 'completed').length || 0;
+      const totalPenerima = disposisiData?.length || 0;
+      
+      const { count: totalSurat } = await supabase.from('surat_masuk').select('*', { count: 'exact', head: true });
+      
+      setStats({
+        totalSurat: totalSurat || 0,
+        pendingCount,
+        completedCount,
+        totalPenerima
+      });
+      
+      const { data: recentSurat } = await supabase.from('surat_masuk').select(`
+        *,
+        disposisi (
+          id, status, catatan_instruksi,
+          profiles ( id, full_name, jabatan )
+        )
+      `).order('created_at', { ascending: false }).limit(3);
+      
+      if (recentSurat) {
+        const formatted = recentSurat.map((item: any) => {
+          const penerima = item.disposisi ? item.disposisi.map((d: any) => ({
+            id: d.profiles?.id || d.id,
+            nama: d.profiles?.full_name || 'Unknown',
+            status: d.status
+          })) : [];
+          const allCompleted = penerima.length > 0 && penerima.every((p: any) => p.status === 'completed');
+          return {
+            id: item.id,
+            nomor_surat: item.nomor_surat,
+            judul_surat: item.judul_surat,
+            hal: item.judul_surat,
+            tanggal_surat: item.tanggal_surat,
+            tanggal_diterima: item.tanggal_diterima || item.tanggal_surat,
+            sifat: item.sifat || 'Biasa',
+            penerima,
+            status: allCompleted ? 'completed' : 'pending',
+            created_at: item.created_at
+          };
+        });
+        setRecentDisposisi(formatted);
+        setPendingDisposisi(formatted.filter(f => f.status === 'pending').slice(0, 4));
+      }
+    };
+    fetchDashboardData();
   }, []);
 
-  const totalSurat = MOCK_DISPOSISI.length;
-  const pendingCount = MOCK_DISPOSISI.filter((d) => getDisposisiStatus(d) === "pending").length;
-  const completedCount = MOCK_DISPOSISI.filter((d) => getDisposisiStatus(d) === "completed").length;
-  const totalPenerima = MOCK_DISPOSISI.reduce((sum, d) => sum + d.penerima.length, 0);
+  const { totalSurat, pendingCount, completedCount, totalPenerima } = stats;
 
-  const recentDisposisi = MOCK_DISPOSISI.slice(0, 3);
-
-  // Kalkulasi Absensi
-  const today = new Date().toISOString().split("T")[0];
-  const absensiHariIni = MOCK_ABSENSI.filter(a => a.tanggal === today);
-  
-  const getAbsensiByDivisi = (divisiName: "Operasional" | "Pendataan") => {
-    const staffsInDivisi = MOCK_STAFF.filter(s => s.divisi === divisiName);
-    const total = staffsInDivisi.length;
-    const stats: Record<StatusAbsensi | "Belum", number> = {
-      "Hadir": 0, "Cuti tahunan": 0, "Dinas luar": 0, "Off": 0, "Telat": 0, "Belum": 0,
-      "Hadir di apel": 0, "Hadir di lapangan": 0, "Cuti": 0
-    };
-    
-    staffsInDivisi.forEach(staff => {
-      const absen = absensiHariIni.find(a => a.staff_id === staff.id);
-      if (absen) {
-        stats[absen.status]++;
-      } else {
-        stats["Belum"]++;
-      }
-    });
-    return { total, stats };
-  };
-
-  const opsStats = getAbsensiByDivisi("Operasional");
-  const dataStats = getAbsensiByDivisi("Pendataan");
+  // Kalkulasi Absensi (tetap mock karena belum ada modul database absen)
+  const opsStats = { total: 10, stats: { "Hadir": 8, "Cuti tahunan": 1, "Dinas luar": 0, "Off": 1, "Telat": 0, "Belum": 0 } as any };
+  const dataStats = { total: 12, stats: { "Hadir di apel": 9, "Hadir di lapangan": 1, "Cuti": 1, "Off": 0, "Telat": 1, "Belum": 0 } as any };
 
   return (
     <div className="flex h-screen overflow-hidden bg-zinc-950">
@@ -273,13 +302,13 @@ export default function AdminDashboard() {
                       <div className="flex justify-between text-sm mb-2 font-medium">
                         <span className="text-zinc-400">Selesai Ditindaklanjuti</span>
                         <span className="text-emerald-400 font-mono font-bold bg-emerald-500/10 px-2 rounded-md border border-emerald-500/20">
-                          {Math.round((completedCount / totalSurat) * 100)}%
+                          {totalSurat > 0 ? Math.round((completedCount / totalSurat) * 100) : 0}%
                         </span>
                       </div>
                       <div className="progress-bar bg-zinc-800 h-3 rounded-full border border-zinc-700/50">
                         <div
                           className="h-full bg-gradient-to-r from-emerald-600 to-emerald-400 rounded-full transition-all shadow-[0_0_10px_rgba(52,211,153,0.5)]"
-                          style={{ width: `${(completedCount / totalSurat) * 100}%` }}
+                          style={{ width: `${totalSurat > 0 ? (completedCount / totalSurat) * 100 : 0}%` }}
                         />
                       </div>
                     </div>
@@ -287,13 +316,13 @@ export default function AdminDashboard() {
                       <div className="flex justify-between text-sm mb-2 font-medium">
                         <span className="text-zinc-400">Status Pending</span>
                         <span className="text-amber-400 font-mono font-bold bg-amber-500/10 px-2 rounded-md border border-amber-500/20">
-                          {Math.round((pendingCount / totalSurat) * 100)}%
+                          {totalSurat > 0 ? Math.round((pendingCount / totalSurat) * 100) : 0}%
                         </span>
                       </div>
                       <div className="progress-bar bg-zinc-800 h-3 rounded-full border border-zinc-700/50">
                         <div
                           className="h-full bg-gradient-to-r from-amber-600 to-amber-400 rounded-full transition-all shadow-[0_0_10px_rgba(251,191,36,0.5)]"
-                          style={{ width: `${(pendingCount / totalSurat) * 100}%` }}
+                          style={{ width: `${totalSurat > 0 ? (pendingCount / totalSurat) * 100 : 0}%` }}
                         />
                       </div>
                     </div>
@@ -305,8 +334,7 @@ export default function AdminDashboard() {
                       Perhatian Khusus (Pending)
                     </p>
                     <div className="space-y-2">
-                      {MOCK_DISPOSISI.filter((d) => getDisposisiStatus(d) === "pending")
-                        .slice(0, 4)
+                      {pendingDisposisi
                         .map((d) => {
                           return (
                             <Link key={d.id} href={`/admin/surat/${d.id}`}>
@@ -320,7 +348,7 @@ export default function AdminDashboard() {
                                       {d.nomor_surat}
                                     </p>
                                     <p className="text-[10px] font-mono text-zinc-500">
-                                      {d.penerima.filter((p) => p.status === "completed").length} dari {d.penerima.length} selesai
+                                      {d.penerima.filter((p: any) => p.status === "completed").length} dari {d.penerima.length} selesai
                                     </p>
                                   </div>
                                 </div>

@@ -5,7 +5,7 @@ import { Sidebar, TopBar } from "@/components/layout/Sidebar";
 import { StatCard } from "@/components/ui/StatCard";
 import { DisposisiCard } from "@/components/disposisi/DisposisiCard";
 import { LiveNotification } from "@/components/layout/LiveNotification";
-import { MOCK_DISPOSISI, MOCK_STAFF } from "@/lib/types";
+import { StatusAbsensi } from "@/lib/types";
 import {
   FileText,
   Clock,
@@ -15,41 +15,76 @@ import {
   Bell,
 } from "lucide-react";
 import Link from "next/link";
+import { createClient } from "@/lib/supabase/client";
 
 // Current staff (Suci Pratiwi Fahrina Siagian) - from login
 const CURRENT_STAFF = "Suci Pratiwi Fahrina Siagian";
 
 export default function StaffDashboard() {
   const [userName, setUserName] = useState("Staf");
-  const [staffName, setStaffName] = useState(CURRENT_STAFF);
+  const [staffName, setStaffName] = useState("");
   const [statusAbsen, setStatusAbsen] = useState<string | null>(null);
 
+  const [stats, setStats] = useState({ totalDisposisi: 0, pendingCount: 0, completedCount: 0 });
+  const [myDisposisi, setMyDisposisi] = useState<any[]>([]);
+  const [recentDisposisi, setRecentDisposisi] = useState<any[]>([]);
+
   useEffect(() => {
-    const user = sessionStorage.getItem("user");
-    if (user) {
-      const u = JSON.parse(user);
-      setUserName(u.name);
-      setStaffName(u.name);
-    }
+    const fetchStaffData = async () => {
+      const supabase = createClient();
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
+      const { data: profile } = await supabase.from('profiles').select('full_name, divisi').eq('id', user.id).single();
+      if (profile) {
+        setUserName(profile.full_name);
+        setStaffName(profile.full_name);
+        if (profile.divisi) {
+          setDivisi(profile.divisi);
+        }
+      }
+
+      // Fetch all disposisi for this staff
+      const { data: allDisp } = await supabase.from('disposisi').select(`
+        id, status, created_at,
+        surat_masuk (*)
+      `).eq('staff_id', user.id).order('created_at', { ascending: false });
+
+      if (allDisp) {
+        const pendingCount = allDisp.filter((d: any) => d.status === 'pending').length;
+        const completedCount = allDisp.filter((d: any) => d.status === 'completed').length;
+        setStats({ totalDisposisi: allDisp.length, pendingCount, completedCount });
+        
+        const formatted = allDisp.map((item: any) => {
+          const surat = item.surat_masuk;
+          return {
+            id: item.id,
+            nomor_surat: surat?.nomor_surat || '-',
+            judul_surat: surat?.judul_surat || '-',
+            hal: surat?.judul_surat || '-',
+            tanggal_surat: surat?.tanggal_surat || '-',
+            tanggal_diterima: surat?.tanggal_diterima || surat?.tanggal_surat,
+            sifat: surat?.sifat || 'Biasa',
+            penerima: [{
+              id: user.id,
+              nama: profile?.full_name || 'Staf',
+              status: item.status
+            }],
+            status: item.status,
+            created_at: item.created_at
+          };
+        });
+        
+        setMyDisposisi(formatted);
+        setRecentDisposisi(formatted.slice(0, 2));
+      }
+    };
+    fetchStaffData();
   }, []);
 
-  const staffProfile = MOCK_STAFF.find(s => s.full_name === staffName);
-  const divisi = staffProfile?.divisi || "Pendataan";
+  const [divisi, setDivisi] = useState<string>("Pendataan"); // Fallback
 
-  // Filter only disposisi where this staff is a receiver
-  const myDisposisi = MOCK_DISPOSISI.filter((d) =>
-    d.penerima.some((p) => p.nama === staffName)
-  );
-
-  const pendingCount = myDisposisi.filter(
-    (d) => d.penerima.find((p) => p.nama === staffName)?.status === "pending"
-  ).length;
-
-  const completedCount = myDisposisi.filter(
-    (d) => d.penerima.find((p) => p.nama === staffName)?.status === "completed"
-  ).length;
-
-  const recentDisposisi = myDisposisi.slice(0, 2);
+  const { totalDisposisi, pendingCount, completedCount } = stats;
 
   return (
     <div className="flex h-screen overflow-hidden bg-zinc-950">
@@ -156,7 +191,7 @@ export default function StaffDashboard() {
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 md:gap-6 mb-6">
               <StatCard
                 title="Total Disposisi"
-                value={myDisposisi.length}
+                value={totalDisposisi}
                 subtitle="Diterima"
                 icon={<FileText size={24} />}
                 color="indigo"
@@ -224,7 +259,7 @@ export default function StaffDashboard() {
                   </h3>
                   <div className="space-y-3">
                     {myDisposisi
-                      .filter((d) => d.penerima.find((p) => p.nama === staffName)?.status === "pending")
+                      .filter((d) => d.penerima.find((p: any) => p.nama === staffName)?.status === "pending")
                       .map((d) => (
                         <Link key={d.id} href={`/staff/disposisi/${d.id}`}>
                           <div className="p-4 rounded-xl bg-zinc-900 border border-zinc-800 shadow-[inset_0_1px_0_rgba(255,255,255,0.02)] hover:border-amber-500/50 hover:bg-amber-500/5 transition-all cursor-pointer group">
