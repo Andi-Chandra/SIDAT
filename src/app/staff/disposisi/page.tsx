@@ -3,38 +3,105 @@
 import React, { useEffect, useState } from "react";
 import { Sidebar, TopBar } from "@/components/layout/Sidebar";
 import { DisposisiCard } from "@/components/disposisi/DisposisiCard";
-import { MOCK_DISPOSISI } from "@/lib/types";
-import { Search } from "lucide-react";
+import { DisposisiData, InstruksiItem } from "@/lib/types";
+import { Search, Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { createClient } from "@/lib/supabase/client";
 
 type FilterStatus = "all" | "pending" | "completed";
 
 export default function StaffDisposisiPage() {
   const [userName, setUserName] = useState("Staf");
-  const [staffName, setStaffName] = useState("Suci Pratiwi Fahrina Siagian");
+  const [staffName, setStaffName] = useState("");
   const [search, setSearch] = useState("");
   const [filter, setFilter] = useState<FilterStatus>("all");
+  
+  const [disposisiList, setDisposisiList] = useState<DisposisiData[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const supabase = createClient();
 
   useEffect(() => {
-    const user = sessionStorage.getItem("user");
-    if (user) {
-      const u = JSON.parse(user);
-      setUserName(u.name);
-      setStaffName(u.name);
-    }
+    fetchUserDataAndDisposisi();
   }, []);
 
-  const myDisposisi = MOCK_DISPOSISI.filter((d) =>
-    d.penerima.some((p) => p.nama === staffName)
-  );
+  const fetchUserDataAndDisposisi = async () => {
+    setIsLoading(true);
+    
+    // Get current user
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) {
+      setIsLoading(false);
+      return;
+    }
 
-  const filtered = myDisposisi.filter((d) => {
-    const myStatus = d.penerima.find((p) => p.nama === staffName)?.status;
+    // Get user profile name
+    const { data: profile } = await supabase
+      .from('profiles')
+      .select('full_name')
+      .eq('id', user.id)
+      .single();
+      
+    if (profile) {
+      setUserName(profile.full_name);
+      setStaffName(profile.full_name);
+    }
+
+    // Fetch disposisi assigned to this staff
+    const { data, error } = await supabase
+      .from('disposisi')
+      .select(`
+        id, status, catatan_instruksi, created_at,
+        surat_masuk (*)
+      `)
+      .eq('staff_id', user.id)
+      .order('created_at', { ascending: false });
+
+    if (error) {
+      console.error("Error fetching disposisi:", error);
+    } else if (data) {
+      const formatted: DisposisiData[] = data.map((item: any) => {
+        const surat = item.surat_masuk;
+        
+        let instruksi = surat?.instruksi;
+        if (typeof instruksi === 'string') {
+          try { instruksi = JSON.parse(instruksi); } catch(e) {}
+        }
+        if (!Array.isArray(instruksi)) instruksi = [];
+
+        return {
+          id: item.id, // Using disposisi ID here for unique keys
+          nomor_surat: surat?.nomor_surat || '-',
+          judul_surat: surat?.judul_surat || '-',
+          hal: surat?.judul_surat || '-', 
+          tanggal_surat: surat?.tanggal_surat || '-',
+          tanggal_diterima: surat?.tanggal_diterima || surat?.tanggal_surat,
+          sifat: surat?.sifat || 'Biasa',
+          untuk: surat?.untuk || '-',
+          no_agenda: surat?.no_agenda || '-',
+          kode: surat?.kode || '-',
+          dari: surat?.dari || '-',
+          lampiran: surat?.lampiran || '-',
+          instruksi: instruksi as InstruksiItem[],
+          penerima: [{ // Mocking the penerima array for the card
+            id: user.id,
+            nama: profile?.full_name || 'Staff',
+            status: item.status
+          }],
+          status: item.status,
+          file_url: surat?.file_url_asli,
+          created_at: item.created_at
+        };
+      });
+      setDisposisiList(formatted);
+    }
+    setIsLoading(false);
+  };
+
+  const filtered = disposisiList.filter((d) => {
     const matchSearch =
       d.nomor_surat.toLowerCase().includes(search.toLowerCase()) ||
       d.hal.toLowerCase().includes(search.toLowerCase());
-    const matchFilter =
-      filter === "all" || myStatus === filter;
+    const matchFilter = filter === "all" || d.status === filter;
     return matchSearch && matchFilter;
   });
 
@@ -80,19 +147,28 @@ export default function StaffDisposisiPage() {
           <p className="text-xs text-slate-500 mb-3">{filtered.length} disposisi ditemukan</p>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {filtered.map((d) => (
-              <DisposisiCard
-                key={d.id}
-                data={d}
-                viewAs="staff"
-                staffName={staffName}
-              />
-            ))}
-            {filtered.length === 0 && (
-              <div className="col-span-2 py-16 text-center text-slate-600">
-                <Search size={32} className="mx-auto mb-3 opacity-50" />
-                <p className="text-sm">Tidak ada disposisi yang ditemukan</p>
+            {isLoading ? (
+              <div className="col-span-2 py-16 text-center text-slate-500">
+                <Loader2 size={32} className="mx-auto mb-3 opacity-50 animate-spin" />
+                <p className="text-sm">Memuat data dari database...</p>
               </div>
+            ) : (
+              <>
+                {filtered.map((d) => (
+                  <DisposisiCard
+                    key={d.id}
+                    data={d}
+                    viewAs="staff"
+                    staffName={staffName}
+                  />
+                ))}
+                {filtered.length === 0 && (
+                  <div className="col-span-2 py-16 text-center text-slate-600">
+                    <Search size={32} className="mx-auto mb-3 opacity-50" />
+                    <p className="text-sm">Tidak ada disposisi yang ditemukan</p>
+                  </div>
+                )}
+              </>
             )}
           </div>
         </div>

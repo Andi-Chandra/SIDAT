@@ -1,0 +1,11 @@
+-- Alter table surat_masuk to add new columns required by the application
+
+ALTER TABLE public.surat_masuk
+ADD COLUMN IF NOT EXISTS tanggal_diterima DATE,
+ADD COLUMN IF NOT EXISTS sifat VARCHAR(50),
+ADD COLUMN IF NOT EXISTS untuk VARCHAR(255),
+ADD COLUMN IF NOT EXISTS no_agenda VARCHAR(255),
+ADD COLUMN IF NOT EXISTS kode VARCHAR(50),
+ADD COLUMN IF NOT EXISTS dari VARCHAR(255),
+ADD COLUMN IF NOT EXISTS lampiran VARCHAR(255),
+ADD COLUMN IF NOT EXISTS instruksi JSONB;

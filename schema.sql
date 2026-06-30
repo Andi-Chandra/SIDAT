@@ -23,6 +23,14 @@ CREATE TABLE IF NOT EXISTS public.surat_masuk (
   nomor_surat VARCHAR NOT NULL,
   judul_surat TEXT NOT NULL,
   tanggal_surat DATE NOT NULL,
+  tanggal_diterima DATE,
+  sifat VARCHAR(50),
+  untuk VARCHAR(255),
+  no_agenda VARCHAR(255),
+  kode VARCHAR(50),
+  dari VARCHAR(255),
+  lampiran VARCHAR(255),
+  instruksi JSONB,
   file_url_asli TEXT NOT NULL,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL
 );

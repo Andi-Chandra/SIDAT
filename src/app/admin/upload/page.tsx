@@ -20,6 +20,7 @@ import {
 import { INSTRUKSI_OPTIONS, MOCK_STAFF, type DisposisiData } from "@/lib/types";
 import { cn } from "@/lib/utils";
 import { useRouter } from "next/navigation";
+import { createClient } from "@/lib/supabase/client";
 
 // Mock OCR result matching the sample PDF
 const MOCK_OCR_RESULT: Partial<DisposisiData> = {
@@ -95,9 +96,18 @@ export default function UploadPage() {
   const [newPenerimaName, setNewPenerimaName] = useState("");
   const [saveProgress, setSaveProgress] = useState(0);
 
+  const [dbStaff, setDbStaff] = useState<any[]>([]);
+  const supabase = createClient();
+
   useEffect(() => {
     const user = sessionStorage.getItem("user");
     if (user) setUserName(JSON.parse(user).name);
+
+    const fetchStaff = async () => {
+      const { data } = await supabase.from('profiles').select('id, full_name').eq('role', 'staff');
+      if (data) setDbStaff(data);
+    };
+    fetchStaff();
   }, []);
 
   const handleFileSelected = async (file: File) => {
@@ -158,11 +168,12 @@ export default function UploadPage() {
 
   const handleAddPenerima = () => {
     if (!newPenerimaName.trim()) return;
+    const existing = dbStaff.find(s => s.full_name.toLowerCase() === newPenerimaName.trim().toLowerCase());
     setFormData((prev) => ({
       ...prev,
       penerima: [
         ...prev.penerima,
-        { id: `p${Date.now()}`, nama: newPenerimaName.trim(), status: "pending" },
+        { id: existing ? existing.id : `custom-${Date.now()}`, nama: newPenerimaName.trim(), status: "pending" },
       ],
     }));
     setNewPenerimaName("");
@@ -177,14 +188,56 @@ export default function UploadPage() {
 
   const handleSave = async () => {
     setStep("saving");
-    setSaveProgress(0);
+    setSaveProgress(20);
 
-    const saveSteps = [30, 60, 85, 100];
-    for (const pct of saveSteps) {
-      await new Promise((r) => setTimeout(r, 500));
-      setSaveProgress(pct);
+    const suratData = {
+      tanggal_diterima: formData.tanggal_diterima || null,
+      nomor_surat: formData.nomor_surat || '-',
+      tanggal_surat: formData.tanggal_surat || new Date().toISOString().split('T')[0],
+      sifat: formData.sifat || 'Biasa',
+      untuk: formData.untuk || '-',
+      judul_surat: formData.hal || 'Tanpa Perihal',
+      no_agenda: formData.no_agenda || '-',
+      kode: formData.kode || '-',
+      dari: formData.dari || '-',
+      lampiran: formData.lampiran || '-',
+      instruksi: formData.instruksi,
+      file_url_asli: "uploaded_file.pdf", // Placeholder
+    };
+
+    const { data: surat, error: suratError } = await supabase
+      .from('surat_masuk')
+      .insert(suratData)
+      .select('id')
+      .single();
+
+    if (suratError) {
+      console.error(suratError);
+      alert("Gagal menyimpan surat: " + suratError.message);
+      setStep("review");
+      return;
     }
 
+    setSaveProgress(60);
+
+    if (formData.penerima.length > 0) {
+      const disposisiData = formData.penerima.map(p => ({
+        surat_id: surat.id,
+        staff_id: p.id.startsWith('custom-') || p.id.startsWith('p') ? null : p.id,
+        catatan_instruksi: null, // can be added later if needed
+      }));
+
+      const { error: dispError } = await supabase
+        .from('disposisi')
+        .insert(disposisiData);
+
+      if (dispError) {
+        console.error(dispError);
+        alert("Gagal menyimpan disposisi: " + dispError.message);
+      }
+    }
+
+    setSaveProgress(100);
     await new Promise((r) => setTimeout(r, 400));
     setStep("done");
   };
@@ -532,7 +585,7 @@ export default function UploadPage() {
                       {/* Quick add from staff list */}
                       <div className="space-y-1">
                         <p className="text-[10px] text-slate-600 font-semibold">Pilih dari daftar staf:</p>
-                        {MOCK_STAFF.filter((s) => s.role === "staff")
+                        {dbStaff
                           .filter((s) => !formData.penerima.find((p) => p.nama === s.full_name))
                           .map((s) => (
                             <button
@@ -542,7 +595,7 @@ export default function UploadPage() {
                                   ...prev,
                                   penerima: [
                                     ...prev.penerima,
-                                    { id: `p${Date.now()}`, nama: s.full_name, status: "pending" },
+                                    { id: s.id, nama: s.full_name, status: "pending" },
                                   ],
                                 }))
                               }

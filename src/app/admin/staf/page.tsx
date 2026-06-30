@@ -2,19 +2,45 @@
 
 import React, { useEffect, useState } from "react";
 import { Sidebar, TopBar } from "@/components/layout/Sidebar";
-import { MOCK_STAFF } from "@/lib/types";
-import { Users, Plus, Mail, Shield, User, Edit, Trash2 } from "lucide-react";
+import { StaffProfile } from "@/lib/types";
+import { Users, Plus, Mail, Shield, User, Edit, Trash2, Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { createClient } from "@/lib/supabase/client";
 
 export default function AdminStafPage() {
   const [userName, setUserName] = useState("Admin");
+  const [staffList, setStaffList] = useState<StaffProfile[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const supabase = createClient();
 
   useEffect(() => {
     const user = sessionStorage.getItem("user");
     if (user) setUserName(JSON.parse(user).name);
+
+    fetchStaff();
   }, []);
 
-  const staffList = MOCK_STAFF.filter((s) => s.role === "staff");
+  const fetchStaff = async () => {
+    setIsLoading(true);
+    const { data, error } = await supabase
+      .from('profiles')
+      .select('*')
+      .eq('role', 'staff')
+      .order('full_name', { ascending: true });
+
+    if (error) {
+      console.error("Error fetching staff:", error);
+    } else if (data) {
+      setStaffList(data.map((p: any) => ({
+        id: p.id,
+        full_name: p.full_name,
+        jabatan: p.jabatan || '-',
+        email: p.nip || 'NIP/Email tidak tersedia', // Fallback to NIP since email is in auth
+        role: p.role as 'admin' | 'staff'
+      })));
+    }
+    setIsLoading(false);
+  };
 
   return (
     <div className="flex h-screen overflow-hidden bg-zinc-950 text-zinc-50">
@@ -34,8 +60,14 @@ export default function AdminStafPage() {
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-            {staffList.map((staff) => (
-              <div key={staff.id} className="card p-5 group">
+            {isLoading ? (
+              <div className="col-span-3 py-16 text-center text-slate-500">
+                <Loader2 size={32} className="mx-auto mb-3 opacity-50 animate-spin" />
+                <p className="text-sm">Memuat data staf dari database...</p>
+              </div>
+            ) : (
+              staffList.map((staff) => (
+                <div key={staff.id} className="card p-5 group">
                 <div className="flex items-start justify-between mb-4">
                   <div className="flex items-center gap-3">
                     <div className="w-11 h-11 rounded-2xl bg-gradient-to-br from-blue-500/30 to-teal-500/30 flex items-center justify-center">
@@ -80,7 +112,7 @@ export default function AdminStafPage() {
                   </div>
                 </div>
               </div>
-            ))}
+            )))}
           </div>
         </div>
       </main>

@@ -3,9 +3,10 @@
 import React, { useEffect, useState } from "react";
 import { Sidebar, TopBar } from "@/components/layout/Sidebar";
 import { DisposisiCard } from "@/components/disposisi/DisposisiCard";
-import { MOCK_DISPOSISI } from "@/lib/types";
-import { Search, Filter, SlidersHorizontal } from "lucide-react";
+import { DisposisiData, InstruksiItem } from "@/lib/types";
+import { Search, Filter, SlidersHorizontal, Loader2 } from "lucide-react";
 import { cn, getDisposisiStatus } from "@/lib/utils";
+import { createClient } from "@/lib/supabase/client";
 
 type FilterStatus = "all" | "pending" | "completed";
 
@@ -14,18 +15,96 @@ export default function AdminSuratPage() {
   const [search, setSearch] = useState("");
   const [filter, setFilter] = useState<FilterStatus>("all");
 
-  const [suratList, setSuratList] = useState(MOCK_DISPOSISI);
+  const [suratList, setSuratList] = useState<DisposisiData[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const supabase = createClient();
 
   useEffect(() => {
     const user = sessionStorage.getItem("user");
     if (user) setUserName(JSON.parse(user).name);
+    
+    fetchSurat();
   }, []);
 
-  const handleDelete = (id: string, e: React.MouseEvent) => {
+  const fetchSurat = async () => {
+    setIsLoading(true);
+    const { data, error } = await supabase
+      .from('surat_masuk')
+      .select(`
+        *,
+        disposisi (
+          id, status, catatan_instruksi,
+          profiles (
+            id, full_name, jabatan
+          )
+        )
+      `)
+      .order('created_at', { ascending: false });
+
+    if (error) {
+      console.error("Error fetching surat:", error);
+    } else if (data) {
+      const formatted: DisposisiData[] = data.map((item: any) => {
+        // Map Supabase data to DisposisiData interface
+        const penerima = item.disposisi ? item.disposisi.map((d: any) => ({
+          id: d.profiles?.id || d.id,
+          nama: d.profiles?.full_name || 'Unknown',
+          jabatan: d.profiles?.jabatan || '',
+          status: d.status
+        })) : [];
+
+        // Determine overall status
+        const allCompleted = penerima.length > 0 && penerima.every((p: any) => p.status === 'completed');
+        
+        // Handle instruksi parsing (might be string or object from JSONB)
+        let instruksi = item.instruksi;
+        if (typeof instruksi === 'string') {
+          try { instruksi = JSON.parse(instruksi); } catch(e) {}
+        }
+        if (!Array.isArray(instruksi)) instruksi = [];
+
+        return {
+          id: item.id,
+          nomor_surat: item.nomor_surat,
+          judul_surat: item.judul_surat,
+          hal: item.judul_surat, // hal maps to judul_surat
+          tanggal_surat: item.tanggal_surat,
+          tanggal_diterima: item.tanggal_diterima || item.tanggal_surat,
+          sifat: item.sifat || 'Biasa',
+          untuk: item.untuk || '-',
+          no_agenda: item.no_agenda || '-',
+          kode: item.kode || '-',
+          dari: item.dari || '-',
+          lampiran: item.lampiran || '-',
+          instruksi: instruksi as InstruksiItem[],
+          penerima: penerima,
+          status: allCompleted ? 'completed' : 'pending',
+          file_url: item.file_url_asli,
+          created_at: item.created_at
+        };
+      });
+      setSuratList(formatted);
+    }
+    setIsLoading(false);
+  };
+
+  const handleDelete = async (id: string, e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
-    if (confirm("Apakah Anda yakin ingin menghapus surat disposisi ini? Tindakan ini tidak dapat dibatalkan.")) {
+    if (confirm("Apakah Anda yakin ingin menghapus surat disposisi ini? Tindakan ini tidak dapat dibatalkan (termasuk menghapus disposisi terkait).")) {
+      // Optimistic UI update
       setSuratList(prev => prev.filter(s => s.id !== id));
+      
+      const { error } = await supabase
+        .from('surat_masuk')
+        .delete()
+        .eq('id', id);
+        
+      if (error) {
+        console.error("Error deleting surat:", error);
+        alert("Gagal menghapus surat: " + error.message);
+        fetchSurat(); // Revert on failure
+      }
     }
   };
 
@@ -82,14 +161,23 @@ export default function AdminSuratPage() {
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-            {filtered.map((d) => (
-              <DisposisiCard key={d.id} data={d} viewAs="admin" onDelete={handleDelete} />
-            ))}
-            {filtered.length === 0 && (
-              <div className="col-span-3 py-16 text-center text-slate-600">
-                <Search size={32} className="mx-auto mb-3 opacity-50" />
-                <p className="text-sm">Tidak ada surat yang cocok dengan pencarian</p>
+            {isLoading ? (
+              <div className="col-span-3 py-16 text-center text-slate-500">
+                <Loader2 size={32} className="mx-auto mb-3 opacity-50 animate-spin" />
+                <p className="text-sm">Memuat data dari database...</p>
               </div>
+            ) : (
+              <>
+                {filtered.map((d) => (
+                  <DisposisiCard key={d.id} data={d} viewAs="admin" onDelete={handleDelete} />
+                ))}
+                {filtered.length === 0 && (
+                  <div className="col-span-3 py-16 text-center text-slate-600">
+                    <Search size={32} className="mx-auto mb-3 opacity-50" />
+                    <p className="text-sm">Tidak ada surat yang cocok dengan pencarian</p>
+                  </div>
+                )}
+              </>
             )}
           </div>
         </div>
