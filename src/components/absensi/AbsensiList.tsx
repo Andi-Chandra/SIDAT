@@ -48,8 +48,7 @@ export function AbsensiList({ currentUserRole, currentUserId }: AbsensiListProps
       // 1. Fetch all staff
       const { data: staffData } = await supabase
         .from('profiles')
-        .select('id, full_name, jabatan')
-        .eq('role', 'staff')
+        .select('id, full_name, jabatan, role')
         .order('full_name');
 
       if (!staffData) return;
