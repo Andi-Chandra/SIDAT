@@ -158,7 +158,6 @@ export default function AdminDashboard() {
                 subtitle="Bulan ini"
                 icon={<FileText size={24} />}
                 color="indigo"
-                trend={{ value: 12, label: "vs bulan lalu", positive: true }}
               />
               <StatCard
                 title="Pending"
@@ -173,7 +172,6 @@ export default function AdminDashboard() {
                 subtitle="Tindak lanjut"
                 icon={<CheckCircle size={24} />}
                 color="teal"
-                trend={{ value: 8, label: "vs minggu lalu", positive: true }}
               />
               <StatCard
                 title="Penerima"
