@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { GoogleGenAI } from "@google/genai";
-// @ts-ignore
-const pdfParse = require("pdf-parse");
+
 
 export async function POST(req: NextRequest) {
   try {
@@ -17,6 +16,7 @@ export async function POST(req: NextRequest) {
     const buffer = Buffer.from(arrayBuffer);
 
     // Extract text from PDF
+    const pdfParse = require("pdf-parse");
     const pdfData = await pdfParse(buffer);
     const extractedText = pdfData.text;
 
