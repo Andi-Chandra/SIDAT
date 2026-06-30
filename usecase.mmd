@@ -1,0 +1,25 @@
+flowchart LR
+    Admin(["Admin / Pimpinan"])
+    Staff(["Staf (Pegawai)"])
+    subgraph "Sistem SIDAT"
+        direction TB
+        UC1(["Login ke Sistem"])
+        UC2(["Upload & Ekstrak Surat (AI)"])
+        UC3(["Validasi & Distribusi Surat"])
+        UC4(["Melihat Dashboard Surat"])
+        UC5(["Mengisi Absen Apel"])
+        UC6(["Upload Bukti Tindak Lanjut"])
+        UC7(["Memantau Laporan Absensi"])
+        UC8(["Melihat Peringkat Kinerja (AHP)"])
+    end
+    Admin --> UC1
+    Admin --> UC2
+    Admin --> UC3
+    Admin --> UC4
+    Admin --> UC7
+    Admin --> UC8
+    Staff --> UC1
+    Staff --> UC4
+    Staff --> UC5
+    Staff --> UC6
+    UC2 -. "<<include>>" .-> UC3

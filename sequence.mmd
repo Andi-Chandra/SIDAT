@@ -1,0 +1,21 @@
+sequenceDiagram
+    actor Admin
+    participant Frontend as SIDAT (Next.js)
+    participant AI as AI Engine / Backend
+    participant DB as Database (Supabase)
+    actor Staf
+    Admin->>Frontend: 1. Upload Surat (PDF)
+    Frontend->>AI: 2. Kirim PDF untuk Ekstraksi
+    activate AI
+    AI-->>Frontend: 3. Kembalikan Ekstraksi JSON (Nama, Instruksi)
+    deactivate AI
+    Frontend-->>Admin: 4. Tampilkan "Review Form"
+    Admin->>Frontend: 5. Validasi Data & Klik "Simpan & Distribusi"
+    Frontend->>DB: 6. Simpan Data Surat & Target Staf
+    activate DB
+    DB-->>Staf: 7. Surat Muncul di Dashboard Staf
+    deactivate DB
+    Staf->>Frontend: 8. Lihat Detail & Baca Instruksi
+    Staf->>Frontend: 9. Upload Dokumen Bukti Tindak Lanjut
+    Frontend->>DB: 10. Update Status Disposisi ke "Completed"
+    DB-->>Admin: 11. Status Berubah di Dashboard Admin
