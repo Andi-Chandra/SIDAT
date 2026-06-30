@@ -43,6 +43,10 @@ export default function AdminDashboard() {
   const [recentDisposisi, setRecentDisposisi] = useState<any[]>([]);
   const [pendingDisposisi, setPendingDisposisi] = useState<any[]>([]);
 
+  const [statusAbsen, setStatusAbsen] = useState<string | null>(null);
+  const [absensiId, setAbsensiId] = useState<string | null>(null);
+  const [isSavingAbsen, setIsSavingAbsen] = useState(false);
+
   const [opsStats, setOpsStats] = useState({ total: 0, stats: { "Hadir": 0, "Cuti tahunan": 0, "Dinas luar": 0, "Off": 0, "Telat": 0, "Belum": 0 } as any });
   const [dataStats, setDataStats] = useState({ total: 0, stats: { "Hadir di apel": 0, "Hadir di lapangan": 0, "Cuti": 0, "Off": 0, "Telat": 0, "Belum": 0 } as any });
 
@@ -54,6 +58,23 @@ export default function AdminDashboard() {
     
     const fetchDashboardData = async () => {
       const supabase = createClient();
+      
+      const { data: { user } } = await supabase.auth.getUser();
+      
+      if (user) {
+        const today = new Date().toLocaleDateString('en-CA');
+        const { data: absenData } = await supabase
+          .from('absensi')
+          .select('*')
+          .eq('staff_id', user.id)
+          .eq('tanggal', today)
+          .single();
+          
+        if (absenData) {
+          setStatusAbsen(absenData.status);
+          setAbsensiId(absenData.id);
+        }
+      }
       
       const { data: disposisiData } = await supabase.from('disposisi').select('status, id, surat_id');
       const pendingCount = disposisiData?.filter(d => d.status === 'pending').length || 0;
@@ -152,6 +173,46 @@ export default function AdminDashboard() {
 
   const { totalSurat, pendingCount, completedCount, totalPenerima } = stats;
 
+  const handleAbsenClick = async (status: string) => {
+    if (isSavingAbsen) return;
+    setIsSavingAbsen(true);
+    try {
+      const supabase = createClient();
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
+      const today = new Date().toLocaleDateString('en-CA');
+      const timeNow = new Date().toLocaleTimeString('en-GB', { hour12: false }).substring(0,5) + ":00";
+
+      if (absensiId) {
+        const { error } = await supabase
+          .from('absensi')
+          .update({ status, waktu_absen: timeNow })
+          .eq('id', absensiId);
+        if (error) throw error;
+      } else {
+        const { data, error } = await supabase
+          .from('absensi')
+          .insert({
+            staff_id: user.id,
+            tanggal: today,
+            status,
+            waktu_absen: timeNow
+          })
+          .select('id')
+          .single();
+        if (error) throw error;
+        if (data) setAbsensiId(data.id);
+      }
+      setStatusAbsen(status);
+    } catch (error: any) {
+      console.error(error);
+      alert("Gagal menyimpan absensi: " + error.message);
+    } finally {
+      setIsSavingAbsen(false);
+    }
+  };
+
   return (
     <div className="flex h-screen overflow-hidden bg-zinc-950">
       <Sidebar role="admin" userName={userName} jabatan="Sekretaris" />
@@ -165,6 +226,58 @@ export default function AdminDashboard() {
         <div className="flex-1 overflow-y-auto p-4 sm:p-6 lg:p-8">
           <div className="max-w-7xl mx-auto">
             <LiveNotification />
+
+            {/* Absensi Apel Card for Admin */}
+            <div className="bento-card p-6 md:p-8 mb-6 relative overflow-hidden bg-gradient-to-br from-zinc-900 to-zinc-950">
+              <div className="absolute -top-10 -right-10 p-8 opacity-[0.02] text-white pointer-events-none">
+                <CheckCircle size={200} />
+              </div>
+              <div className="relative z-10">
+                <div className="flex items-center justify-between mb-2">
+                  <h3 className="font-heading text-xl font-bold text-white">Laporan Kehadiran (Apel Pagi) Anda</h3>
+                  <span className="font-mono text-sm font-semibold text-indigo-300 bg-indigo-500/10 px-3 py-1.5 rounded-lg border border-indigo-500/20 hidden sm:inline-block">
+                    {new Date().toLocaleDateString("id-ID", {
+                      weekday: "long", day: "numeric", month: "long", year: "numeric",
+                    })}
+                  </span>
+                </div>
+                <p className="text-sm text-zinc-500 mb-6 sm:hidden">
+                  {new Date().toLocaleDateString("id-ID", { day: "numeric", month: "short", year: "numeric" })}
+                </p>
+                
+                {statusAbsen ? (
+                  <div className="flex items-center gap-4 p-5 rounded-2xl bg-emerald-500/10 border border-emerald-500/20 shadow-inner">
+                    <div className="w-12 h-12 rounded-full bg-emerald-500/20 flex items-center justify-center flex-shrink-0 border border-emerald-500/30">
+                      <CheckCircle size={24} className="text-emerald-400" />
+                    </div>
+                    <div>
+                      <p className="font-heading text-base font-bold text-emerald-300 mb-1">Terima kasih, Anda sudah absen hari ini</p>
+                      <p className="text-sm text-emerald-500">Status tercatat: <span className="font-mono font-bold bg-emerald-500/20 text-emerald-200 px-2 py-0.5 rounded border border-emerald-500/30">{statusAbsen}</span></p>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-2 sm:grid-cols-5 gap-3 sm:gap-4">
+                    {[
+                      { label: "Hadir", icon: "✅", color: "bg-zinc-900 border-zinc-800 hover:border-emerald-500 hover:bg-emerald-500/10 text-zinc-400 hover:text-emerald-400 shadow-[inset_0_1px_0_rgba(255,255,255,0.05)]" },
+                      { label: "Cuti tahunan", icon: "🌴", color: "bg-zinc-900 border-zinc-800 hover:border-blue-500 hover:bg-blue-500/10 text-zinc-400 hover:text-blue-400 shadow-[inset_0_1px_0_rgba(255,255,255,0.05)]" },
+                      { label: "Dinas luar", icon: "💼", color: "bg-zinc-900 border-zinc-800 hover:border-indigo-500 hover:bg-indigo-500/10 text-zinc-400 hover:text-indigo-400 shadow-[inset_0_1px_0_rgba(255,255,255,0.05)]" },
+                      { label: "Off", icon: "🛌", color: "bg-zinc-900 border-zinc-800 hover:border-zinc-500 hover:bg-zinc-800 text-zinc-400 hover:text-zinc-200 shadow-[inset_0_1px_0_rgba(255,255,255,0.05)]" },
+                      { label: "Telat", icon: "⏰", color: "bg-zinc-900 border-zinc-800 hover:border-amber-500 hover:bg-amber-500/10 text-zinc-400 hover:text-amber-400 shadow-[inset_0_1px_0_rgba(255,255,255,0.05)]" },
+                    ].map((btn) => (
+                      <button
+                        key={btn.label}
+                        onClick={() => handleAbsenClick(btn.label)}
+                        disabled={isSavingAbsen}
+                        className={`flex flex-col items-center justify-center gap-3 p-4 sm:p-5 rounded-2xl border transition-all hover:shadow-[0_8px_20px_-5px_rgba(0,0,0,0.5)] hover:-translate-y-1 ${btn.color} ${isSavingAbsen ? 'opacity-50 cursor-not-allowed' : ''}`}
+                      >
+                        <span className="text-3xl grayscale-[0.5] hover:grayscale-0 transition-all">{btn.icon}</span>
+                        <span className="text-xs sm:text-sm font-semibold text-center leading-tight">{btn.label}</span>
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
 
             {/* Welcome banner (Bento Style) */}
             <div className="relative mb-6 overflow-hidden rounded-3xl p-6 md:p-8 bg-indigo-600/20 border border-indigo-500/30 shadow-[0_8px_30px_rgb(0,0,0,0.4)] text-white">
