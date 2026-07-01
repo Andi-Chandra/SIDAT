@@ -27,6 +27,7 @@ Berikut adalah diagram arsitektur tingkat tinggi (*High-Level Architecture*) yan
 ![Architecture Diagram](https://mermaid.ink/img/Z3JhcGggVEQKICAgIHN1YmdyYXBoIENsaWVudCBbIkNsaWVudCAvIEZyb250ZW5kIl0KICAgICAgICBVSVsiQW50YXJtdWthIFBlbmdndW5hIChOZXh0LmpzKSJdCiAgICAgICAgUFdBWyJBcGxpa2FzaSBQV0EgKE1vYmlsZSAvIERlc2t0b3ApIl0KICAgIGVuZAogICAgCiAgICBzdWJncmFwaCBCYWNrZW5kIFsiQmFja2VuZCAmIExheWFuYW4iXQogICAgICAgIE5leHRBUElbIk5leHQuanMgQVBJIFJvdXRlcyJdCiAgICAgICAgQUlbIkFJIEVuZ2luZSAoRWtzdHJha3NpIFN1cmF0KSJdCiAgICAgICAgQUhQWyJBSFAgQ2FsY3VsYXRpb24gRW5naW5lIl0KICAgIGVuZAogICAgCiAgICBzdWJncmFwaCBEYXRhYmFzZSBbIlBlbnlpbXBhbmFuIChTdXBhYmFzZSkiXQogICAgICAgIEF1dGhbIkF1dGVudGlrYXNpIFVzZXIiXQogICAgICAgIERCWygiUG9zdGdyZVNRTCBEYXRhYmFzZSIpXQogICAgICAgIFN0b3JhZ2VbIlN0b3JhZ2UgKFBERiAmIEJ1a3RpKSJdCiAgICBlbmQKCiAgICBVSSAtLT58SFRUUC9SRVNUfCBOZXh0QVBJCiAgICBQV0EgLS0+fEhUVFAvUkVTVHwgTmV4dEFQSQogICAgTmV4dEFQSSAtLT58TWVuZ2FuYWxpc2lzIFBERnwgQUkKICAgIE5leHRBUEkgLS0+fEhpdHVuZyBQZXJpbmdrYXR8IEFIUAogICAgTmV4dEFQSSAtLT58UXVlcnkgJiBNdXRhc2l8IEF1dGgKICAgIE5leHRBUEkgLS0+fFNpbXBhbiBEYXRhfCBEQgogICAgTmV4dEFQSSAtLT58TWFuYWplbWVuIEZpbGV8IFN0b3JhZ2U=)
 
 **Penjelasan Arsitektur:**
+- **Pola Arsitektur:** Aplikasi ini mengadopsi arsitektur **Monolitik / Client-Server standar** yang mengimplementasikan pola **CRUD (Create, Read, Update, Delete) langsung ke Supabase** dari sisi *frontend/client*. Pembacaan data (Query) dan penulisan data (Command) berinteraksi langsung dengan tabel database tanpa pemisahan model khusus (sehingga bukan menggunakan sistem CQRS), guna mempertahankan kesederhanaan dan kecepatan pengembangan dalam ekosistem Next.js.
 - **Client/Frontend:** Dibangun menggunakan kerangka kerja (framework) **Next.js** dan disajikan dalam bentuk antarmuka web modern yang responsif. Karena mendukung arsitektur PWA, aplikasi ini dapat diinstal di desktop maupun perangkat seluler dengan pengalaman selayaknya aplikasi *native*.
 - **Backend & Layanan:** Menggunakan *API Routes* bawaan Next.js untuk menghubungkan antarmuka dengan pengolahan data cerdas (*AI Engine* untuk membaca PDF dan *AHP Engine* untuk komputasi peringkat).
 - **Database (Supabase):** Bertindak sebagai basis data PostgreSQL tangguh yang mengelola autentikasi pengguna, penyimpanan berkas PDF & gambar, serta rekam jejak status disposisi surat.
@@ -38,7 +39,6 @@ Berikut adalah diagram arsitektur tingkat tinggi (*High-Level Architecture*) yan
 
 ![Use Case Diagram](https://mermaid.ink/img/Zmxvd2NoYXJ0IExSCiAgICBBZG1pbihbIkFkbWluIC8gUGltcGluYW4iXSkKICAgIFN0YWZmKFsiU3RhZiAoUGVnYXdhaSkiXSkKICAgIHN1YmdyYXBoICJTaXN0ZW0gU0lEQVQiCiAgICAgICAgZGlyZWN0aW9uIFRCCiAgICAgICAgVUMxKFsiTG9naW4ga2UgU2lzdGVtIl0pCiAgICAgICAgVUMyKFsiVXBsb2FkICYgRWtzdHJhayBTdXJhdCAoQUkpIl0pCiAgICAgICAgVUMzKFsiVmFsaWRhc2kgJiBEaXN0cmlidXNpIFN1cmF0Il0pCiAgICAgICAgVUM0KFsiTWVsaWhhdCBEYXNoYm9hcmQgU3VyYXQiXSkKICAgICAgICBVQzUoWyJNZW5naXNpIEFic2VuIEFwZWwiXSkKICAgICAgICBVQzYoWyJVcGxvYWQgQnVrdGkgVGluZGFrIExhbmp1dCJdKQogICAgICAgIFVDNyhbIk1lbWFudGF1IExhcG9yYW4gQWJzZW5zaSJdKQogICAgICAgIFVDOChbIk1lbGloYXQgUGVyaW5na2F0IEtpbmVyamEgKEFIUCkiXSkKICAgIGVuZAogICAgQWRtaW4gLS0+IFVDMQogICAgQWRtaW4gLS0+IFVDMgogICAgQWRtaW4gLS0+IFVDMwogICAgQWRtaW4gLS0+IFVDNAogICAgQWRtaW4gLS0+IFVDNwogICAgQWRtaW4gLS0+IFVDOAogICAgU3RhZmYgLS0+IFVDMQogICAgU3RhZmYgLS0+IFVDNAogICAgU3RhZmYgLS0+IFVDNQogICAgU3RhZmYgLS0+IFVDNgogICAgVUMyIC0uICI8PGluY2x1ZGU+PiIgLi0+IFVDMw==)
 
-<br><br><br><br><br><br><br><br><br><br><br><br><br><br><br><br><br><br><br><br><br><br><br><br><br>
 
 #### 4.2 Sequence Diagram (Alur Disposisi & Ekstraksi AI)
 
@@ -51,8 +51,6 @@ Admin mengunggah dokumen PDF surat. Sistem (via AI Engine) membaca PDF tersebut 
 
 ### 5. Kebutuhan Fitur Pendukung Utama
 - **Modul Absensi Apel (Harian):** Sistem mengakomodasi presensi harian layaknya sistem grup komunikasi. Poling dibedakan atas Divisi Operasional (Hadir, Cuti Tahunan, Dinas Luar, Off, Telat) dan Divisi Pendataan (Hadir di apel, Hadir di lapangan, Cuti, Off, Telat). Tingkat partisipasi absensi ini memengaruhi kriteria penilaian AHP (K4).
-
-<br><br><br><br><br><br><br><br><br><br><br><br><br><br><br><br><br><br><br><br><br><br><br><br><br>
 
 ### 6. Pembahasan Lengkap Sistem Pengambil Keputusan (SPK) AHP
 
